@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from .tasks import tasks_db
+from database import tasks_db
 
 router = APIRouter(prefix="/tasks/stats", tags=["statistics"])
 
