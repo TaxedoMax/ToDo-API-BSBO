@@ -6,7 +6,10 @@ from datetime import datetime
 app = FastAPI(
     title="ToDo лист API",
     description="API для управления задачами с использованием матрицы Эйзенхауэра",
-    version="1.0.0"
+    version="1.0.0",
+    contact={
+        "name": "Арзуманянц М Э",
+    }
 )
 
 # Временное хранилище (позже будет заменено на PostgreSQL)
