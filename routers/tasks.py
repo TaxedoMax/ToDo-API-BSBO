@@ -1,6 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, status
 from typing import List, Dict, Any
 from datetime import datetime
+
+from schemas import TaskCreate, TaskResponse
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -124,8 +126,8 @@ async def get_tasks_by_quadrant(quadrant: str) -> dict:
         "tasks": filtered_tasks
     }
 
-@router.get("/{task_id}")
-async def get_task_by_id(task_id: int) -> dict:
+@router.get("/{task_id}", response_model=TaskResponse)
+async def get_task_by_id(task_id: int) -> TaskResponse:
     task = next((task for task in tasks_db if task["id"] == task_id), None)
     if not task:
         raise HTTPException(
@@ -133,4 +135,33 @@ async def get_task_by_id(task_id: int) -> dict:
             detail="Задача не найдена"
         )
     return task
+
+# Мы указываем, что эндпоинт будет возвращать данные,
+# соответствующие схеме TaskResponse
+@router.post("/", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
+async def create_task(task: TaskCreate) -> TaskResponse:
+    if task.is_important and task.is_urgent:
+        quadrant = "Q1"
+    elif task.is_important and not task.is_urgent:
+        quadrant = "Q2"
+    elif not task.is_important and task.is_urgent:
+        quadrant = "Q3"
+    else:
+        quadrant = "Q4"
+
+    new_id = max([t["id"] for t in tasks_db], default=0) + 1
+
+    new_task = {
+        "id": new_id,
+        "title": task.title,
+        "description": task.description,
+        "is_important": task.is_important,
+        "is_urgent": task.is_urgent,
+        "quadrant": quadrant,
+        "completed": False,
+        "created_at": datetime.now()
+    }
+    tasks_db.append(new_task)
+
+    return new_task
 
