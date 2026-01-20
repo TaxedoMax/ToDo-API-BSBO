@@ -1,24 +1,30 @@
-from fastapi import APIRouter
-from database import tasks_db
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from models import Task
+from database import get_async_session
 
-router = APIRouter(prefix="/tasks/stats", tags=["statistics"])
+router = APIRouter(
+    prefix="/stats",
+    tags=["statistics"]
+)
 
-@router.get("/")
-async def get_tasks_stats() -> dict:
+@router.get("/", response_model=dict)
+async def get_tasks_stats(db: AsyncSession = Depends(get_async_session)) -> dict:
+    result = await db.execute(select(Task))
+    tasks = result.scalars().all()
+    total_tasks = len(tasks)
     by_quadrant = {"Q1": 0, "Q2": 0, "Q3": 0, "Q4": 0}
-    for task in tasks_db:
-        if task["quadrant"] in by_quadrant:
-            by_quadrant[task["quadrant"]] += 1
-
-    completed_count = sum(1 for task in tasks_db if task["completed"])
-    pending_count = len(tasks_db) - completed_count
-
+    by_status = {"completed": 0, "pending": 0}
+    for task in tasks:
+        if task.quadrant in by_quadrant:
+            by_quadrant[task.quadrant] += 1
+        if task.completed:
+            by_status["completed"] += 1
+        else:
+            by_status["pending"] += 1
     return {
-        "total_tasks": len(tasks_db),
+        "total_tasks": total_tasks,
         "by_quadrant": by_quadrant,
-        "by_status": {
-            "completed": completed_count,
-            "pending": pending_count
-        }
+        "by_status": by_status
     }
-
