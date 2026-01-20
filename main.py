@@ -55,3 +55,43 @@ tasks_db: List[Dict[str, Any]] = [
         "created_at": datetime.now()
     },
 ]
+
+@app.get("/")
+async def welcome() -> dict:
+    return {
+        "message": "Привет, студент!",
+        "api_title": app.title,
+        "api_description": app.description,
+        "api_version": app.version,
+        "api_author": app.contact["name"],
+    }
+
+    from fastapi import HTTPException
+
+@app.get("/tasks")
+async def get_all_tasks() -> dict:
+    return {
+        "count": len(tasks_db),  # считает количество записей в хранилище
+        "tasks": tasks_db        # выводит всё, что есть в хранилище
+    }
+
+
+@app.get("/tasks/quadrant/{quadrant}")
+async def get_tasks_by_quadrant(quadrant: str) -> dict:
+    if quadrant not in ["Q1", "Q2", "Q3", "Q4"]:
+        raise HTTPException(  # специальный класс в FastAPI для возврата HTTP ошибок
+            status_code=400,
+            detail="Неверный квадрант. Используйте: Q1, Q2, Q3, Q4"  # текст для пользователя
+        )
+
+    filtered_tasks = [
+        task                 # ЧТО добавляем в список
+        for task in tasks_db # ОТКУДА берем элементы
+        if task["quadrant"] == quadrant  # УСЛОВИЕ фильтрации
+    ]
+
+    return {
+        "quadrant": quadrant,
+        "count": len(filtered_tasks),
+        "tasks": filtered_tasks
+    }
