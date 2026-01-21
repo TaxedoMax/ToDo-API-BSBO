@@ -2,13 +2,30 @@ from fastapi import APIRouter, HTTPException, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 from schemas import TaskCreate, TaskResponse, TaskUpdate
 from models import Task
 from database import get_async_session
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
+
+def calculate_quadrant(is_important: bool, deadline_at: datetime) -> str:
+    now = datetime.now(timezone.utc)
+    if deadline_at.tzinfo is None:
+        deadline_at = deadline_at.replace(tzinfo=timezone.utc)
+    
+    # Срочно, если до дедлайна <= 3 дней
+    is_urgent = (deadline_at - now) <= timedelta(days=3)
+    
+    if is_important and is_urgent:
+        return "Q1"
+    elif is_important and not is_urgent:
+        return "Q2"
+    elif not is_important and is_urgent:
+        return "Q3"
+    else:
+        return "Q4"
 
 # GET ALL TASKS - Получить все задачи
 @router.get("", response_model=List[TaskResponse])
@@ -92,20 +109,13 @@ async def create_task(
     task: TaskCreate,
     db: AsyncSession = Depends(get_async_session)
 ) -> TaskResponse:
-    if task.is_important and task.is_urgent:
-        quadrant = "Q1"
-    elif task.is_important and not task.is_urgent:
-        quadrant = "Q2"
-    elif not task.is_important and task.is_urgent:
-        quadrant = "Q3"
-    else:
-        quadrant = "Q4"
+    quadrant = calculate_quadrant(task.is_important, task.deadline_at)
 
     new_task = Task(
         title=task.title,
         description=task.description,
         is_important=task.is_important,
-        is_urgent=task.is_urgent,
+        deadline_at=task.deadline_at,
         quadrant=quadrant,
         completed=False
     )
@@ -132,15 +142,9 @@ async def update_task(
     for field, value in update_data.items():
         setattr(task, field, value)
 
-    if "is_important" in update_data or "is_urgent" in update_data:
-        if task.is_important and task.is_urgent:
-            task.quadrant = "Q1"
-        elif task.is_important and not task.is_urgent:
-            task.quadrant = "Q2"
-        elif not task.is_important and task.is_urgent:
-            task.quadrant = "Q3"
-        else:
-            task.quadrant = "Q4"
+    # Пересчитываем квадрант при изменении важности или дедлайна
+    if "is_important" in update_data or "deadline_at" in update_data:
+        task.quadrant = calculate_quadrant(task.is_important, task.deadline_at)
 
     await db.commit()
     await db.refresh(task)
@@ -160,7 +164,7 @@ async def complete_task(
         raise HTTPException(status_code=404, detail="Задача не найдена")
 
     task.completed = True
-    task.completed_at = datetime.now()
+    task.completed_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(task)
     return task

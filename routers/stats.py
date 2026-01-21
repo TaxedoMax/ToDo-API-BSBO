@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from typing import List
+from datetime import datetime, timezone
 from models import Task
 from database import get_async_session
 
@@ -28,3 +30,26 @@ async def get_tasks_stats(db: AsyncSession = Depends(get_async_session)) -> dict
         "by_quadrant": by_quadrant,
         "by_status": by_status
     }
+
+@router.get("/deadlines", response_model=List[dict])
+async def get_deadlines_stats(db: AsyncSession = Depends(get_async_session)) -> List[dict]:
+    # Только для задач со статусом "pending"
+    result = await db.execute(select(Task).where(Task.completed == False))
+    tasks = result.scalars().all()
+    
+    now = datetime.now(timezone.utc)
+    stats = []
+    for task in tasks:
+        deadline = task.deadline_at
+        if deadline.tzinfo is None:
+            deadline = deadline.replace(tzinfo=timezone.utc)
+        
+        days_left = (deadline - now).days
+        
+        stats.append({
+            "title": task.title,
+            "description": task.description,
+            "created_at": task.created_at,
+            "days_left": days_left
+        })
+    return stats
