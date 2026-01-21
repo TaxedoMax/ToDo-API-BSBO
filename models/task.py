@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from database import Base
 
 class Task(Base):
@@ -28,6 +29,12 @@ class Task(Base):
         DateTime(timezone=True),
         nullable=False
     )
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=True,
+        index=True
+    )
     quadrant = Column(
         String(2),         # Максимум 2 символа: "Q1", "Q2", "Q3", "Q4"
         nullable=False
@@ -45,6 +52,11 @@ class Task(Base):
     completed_at = Column(
         DateTime(timezone=True),
         nullable=True              # NULL пока задача не завершена
+    )
+
+    owner = relationship(
+        "User",
+        back_populates="tasks"
     )
 
     def __repr__(self) -> str:

@@ -4,6 +4,8 @@ from database import init_db, get_async_session
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text
 from routers import tasks, stats
+from routers.auth import router as auth_router
+from routers.admin import router as admin_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -20,21 +22,23 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="ToDo лист API",
     description="API для управления задачами с использованием матрицы Эйзенхауэра",
-    version="2.0.0",
+    version="3.0.0",
     contact={
         "name": "Арзуманянц М Э",
     },
     lifespan=lifespan  # Подключаем lifespan
 )
 
-app.include_router(tasks.router, prefix="/api/v2")  # подключение роутера к приложению
-app.include_router(stats.router, prefix="/api/v2")
+app.include_router(tasks.router, prefix="/api/v3")  # подключение роутера к приложению
+app.include_router(stats.router, prefix="/api/v3")
+app.include_router(auth_router, prefix="/api/v3")
+app.include_router(admin_router, prefix="/api/v3")
 
 @app.get("/")
 async def read_root() -> dict:
     return {
         "message": "Task Manager API - Управление задачами по матрице Эйзенхауэра",
-        "version": "2.0.0",
+        "version": "3.0.0",
         "database": "PostgreSQL (Supabase)",
         "docs": "/docs",
         "redoc": "/redoc",

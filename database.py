@@ -5,7 +5,7 @@ import os
 from dotenv import load_dotenv
 
 try:
-    from models import Base, Task
+    from models import Base, Task, User
 except ImportError:
     class Base(DeclarativeBase):
         pass

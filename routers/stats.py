@@ -3,8 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
 from datetime import datetime, timezone
-from models import Task
+from models import Task, User, UserRole
 from database import get_async_session
+from dependencies import get_current_user
 
 router = APIRouter(
     prefix="/stats",
@@ -12,8 +13,14 @@ router = APIRouter(
 )
 
 @router.get("/", response_model=dict)
-async def get_tasks_stats(db: AsyncSession = Depends(get_async_session)) -> dict:
-    result = await db.execute(select(Task))
+async def get_tasks_stats(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_session)
+) -> dict:
+    stmt = select(Task)
+    if current_user.role != UserRole.ADMIN:
+        stmt = stmt.where(Task.user_id == current_user.id)
+    result = await db.execute(stmt)
     tasks = result.scalars().all()
     total_tasks = len(tasks)
     by_quadrant = {"Q1": 0, "Q2": 0, "Q3": 0, "Q4": 0}
@@ -32,9 +39,14 @@ async def get_tasks_stats(db: AsyncSession = Depends(get_async_session)) -> dict
     }
 
 @router.get("/deadlines", response_model=List[dict])
-async def get_deadlines_stats(db: AsyncSession = Depends(get_async_session)) -> List[dict]:
-    # Только для задач со статусом "pending"
-    result = await db.execute(select(Task).where(Task.completed == False))
+async def get_deadlines_stats(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_session)
+) -> List[dict]:
+    stmt = select(Task).where(Task.completed == False)
+    if current_user.role != UserRole.ADMIN:
+        stmt = stmt.where(Task.user_id == current_user.id)
+    result = await db.execute(stmt)
     tasks = result.scalars().all()
     
     now = datetime.now(timezone.utc)
